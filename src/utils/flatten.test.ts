@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { flattenMapping, MappingNode } from './flatten';
+import { flattenMapping } from './flatten';
+import type { MappingNode } from './flatten';
 
 describe('flattenMapping', () => {
   it('ignores system and tool messages and flattens text', () => {

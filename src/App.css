@@ -5,39 +5,35 @@
 }
 header {
   padding: 0.5rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--border);
 }
 .body {
   flex: 1;
   display: flex;
+  min-height: 0; /* allow children to scroll */
 }
 .sidebar {
   width: 250px;
-  border-right: 1px solid #ccc;
+  border-right: 1px solid var(--border);
   overflow: auto;
   position: relative;
-}
-.conv-row {
-  padding: 0.5rem;
-  border-bottom: 1px solid #eee;
-  cursor: pointer;
-}
-.conv-row:hover {
-  background: #f0f0f0;
+  background: var(--panel);
+  min-height: 0;
 }
 .preview {
   flex: 1;
   overflow: auto;
   padding: 1rem;
+  min-height: 0;
 }
 .msg {
   margin-bottom: 1rem;
 }
 .msg.user {
-  background: #eef;
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
   padding: 0.5rem;
 }
 .msg.assistant {
-  background: #efe;
+  background: color-mix(in oklab, #34d399 12%, transparent);
   padding: 0.5rem;
 }
