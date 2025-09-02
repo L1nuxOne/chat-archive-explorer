@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sample-1",
+    "title": "Sample Chat",
+    "create_time": 0,
+    "model": "gpt-3.5",
+    "mapping": {
+      "root": { "id": "root", "parent": null, "children": ["1"] },
+      "1": {
+        "id": "1",
+        "parent": "root",
+        "children": ["2"],
+        "message": {
+          "author": { "role": "user" },
+          "content": { "parts": ["Hello"] },
+          "create_time": 1
+        }
+      },
+      "2": {
+        "id": "2",
+        "parent": "1",
+        "children": [],
+        "message": {
+          "author": { "role": "assistant" },
+          "content": { "parts": ["Hi there!"] },
+          "create_time": 2,
+          "metadata": { "model": "gpt-3.5" }
+        }
+      }
+    }
+  }
+]
