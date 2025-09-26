@@ -9,14 +9,13 @@ export default function ThemeToggle() {
     }}>
       <span style={{opacity:.8}}>Theme</span>
       {(['light','dark','system'] as const).map(opt => (
-        <button key={opt}
+        <button
+          key={opt}
+          type="button"
+          className={`btn-ghost${setting === opt ? ' active' : ''}`}
           onClick={() => setSetting(opt)}
           title={opt}
-          style={{
-            border:'1px solid var(--border)', borderRadius:8, padding:'2px 8px',
-            background: setting===opt ? 'var(--btnActive)' : 'transparent',
-            color:'var(--fg)', cursor:'pointer'
-          }}>
+        >
           {opt}
         </button>
       ))}

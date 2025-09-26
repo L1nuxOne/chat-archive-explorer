@@ -17,7 +17,7 @@ function App() {
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<'date' | 'title'>(() => 'date');
+  const [sortKey, setSortKey] = useState<'date' | 'title' | 'messages'>(() => 'date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(() => 'desc');
   const [view, setView] = useState<'explorer' | 'analytics'>('explorer');
 
@@ -30,10 +30,12 @@ function App() {
       let cmp = 0;
       if (sortKey === 'date') {
         cmp = (a.created_at ?? 0) - (b.created_at ?? 0);
-      } else {
+      } else if (sortKey === 'title') {
         const at = (a.title || '').trim();
         const bt = (b.title || '').trim();
         cmp = at.localeCompare(bt, undefined, { sensitivity: 'base' });
+      } else {
+        cmp = (a.msg_count ?? 0) - (b.msg_count ?? 0);
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -76,9 +78,46 @@ function App() {
 
   const openConversation = async (id: string) => {
     setSelected(id);
-    const msgs = await db.messages.where('conversation_id').equals(id).sortBy('idx');
-    setMessages(msgs);
+    const raw = await db.messages.where('conversation_id').equals(id).sortBy('idx');
+    const seen = new Set<string>();
+    const deduped: typeof raw = [];
+    for (const msg of raw) {
+      const key = `${msg.idx}:${msg.role}:${msg.text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(msg);
+    }
+
+    if (deduped.length !== raw.length) {
+      const normalized: Message[] = deduped.map((msg, idx) => ({
+        conversation_id: msg.conversation_id,
+        idx,
+        role: msg.role,
+        created_at: msg.created_at,
+        text: msg.text,
+        model: msg.model,
+      }));
+      await db.transaction('rw', [db.messages, db.conversations], async () => {
+        await db.messages.where('conversation_id').equals(id).delete();
+        if (normalized.length) {
+          await db.messages.bulkAdd(normalized);
+        }
+        await db.conversations.update(id, { msg_count: normalized.length });
+      });
+      setConvs(prev => prev.map(c => (c.id === id ? { ...c, msg_count: normalized.length } : c)));
+      setMessages(normalized);
+    } else {
+      setMessages(deduped);
+    }
     if (previewRef.current) previewRef.current.scrollTop = 0;
+  };
+
+  const openInChatGPT = (id: string) => {
+    const trimmed = id.trim();
+    if (!trimmed) return;
+    const url = new URL(`/c/${encodeURIComponent(trimmed)}`, 'https://chatgpt.com');
+    const win = window.open(url.toString(), '_blank');
+    win?.focus?.();
   };
 
   useEffect(() => {
@@ -91,17 +130,30 @@ function App() {
         <div style={{display:'flex', gap:12, alignItems:'center'}}>
           <h1 style={{margin:0, fontSize:18}}>Chat Archive Explorer</h1>
           <nav style={{display:'flex', gap:8}}>
-            <button onClick={() => setView('explorer')} style={{padding:'4px 8px', border:'1px solid var(--border)', background: view==='explorer'?'var(--btnActive)':'transparent'}}>Explorer</button>
-            <button onClick={() => setView('analytics')} style={{padding:'4px 8px', border:'1px solid var(--border)', background: view==='analytics'?'var(--btnActive)':'transparent'}}>Analytics</button>
+            <button
+              type="button"
+              onClick={() => setView('explorer')}
+              className={`btn-ghost${view === 'explorer' ? ' active' : ''}`}
+            >
+              Explorer
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('analytics')}
+              className={`btn-ghost${view === 'analytics' ? ' active' : ''}`}
+            >
+              Analytics
+            </button>
           </nav>
         </div>
         <div style={{display:'flex', gap:12, alignItems:'center'}}>
           <div style={{display:'flex', gap:6, alignItems:'center', fontSize:12}}>
             <label>
               <span style={{marginRight:4}}>Sort</span>
-              <select value={sortKey} onChange={e => setSortKey(e.target.value as 'date' | 'title')}>
+              <select value={sortKey} onChange={e => setSortKey(e.target.value as 'date' | 'title' | 'messages')}>
                 <option value="date">Date</option>
                 <option value="title">Title</option>
+                <option value="messages">Messages</option>
               </select>
             </label>
             <label>
@@ -127,6 +179,7 @@ function App() {
           <div className="conv-list" style={{ height: `${listVirtual.getTotalSize()}px`, position: 'relative' }}>
             {listVirtual.getVirtualItems().map(v => {
               const c = sortedConvs[v.index];
+              const count = c?.msg_count ?? 0;
               return (
                 <div
                   key={c.id}
@@ -139,7 +192,10 @@ function App() {
                     onClick={() => openConversation(c.id)}
                   >
                     <div className="title">{c.title || 'Untitled'}</div>
-                    <div className="meta">{new Date(c.created_at * 1000).toLocaleString()}</div>
+                    <div className="meta">
+                      <span>{new Date(c.created_at * 1000).toLocaleString()}</span>
+                      <span>{count} {count === 1 ? 'message' : 'messages'}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -148,7 +204,10 @@ function App() {
         </div>
         <div className="preview" ref={previewRef}>
           {selected && (
-            <button onClick={() => exportConversation(selected)}>Export</button>
+            <div style={{display:'flex', gap:8, marginBottom:12}}>
+              <button type="button" onClick={() => openInChatGPT(selected)}>Open in ChatGPT</button>
+              <button type="button" onClick={() => exportConversation(selected)}>Export</button>
+            </div>
           )}
           {messages.map(m => (
             <div key={m.idx} className={`msg ${m.role}`}>

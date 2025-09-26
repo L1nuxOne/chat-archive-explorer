@@ -119,7 +119,7 @@ export default function Analytics({ onOpenConversation }: Props) {
           </label>
         </div>
         <div style={{marginLeft: 'auto'}}>
-          <button onClick={async () => { const since = await getLastAggCutoffSec(); await rebuildSince(since); const fromSec = parseYmd(from); const toSec = parseYmd(to); setRows(await queryAgg({ fromSec, toSec, granularity: gran })); setChatRows(await getChatStats()); }}>Rebuild since last</button>
+          <button type="button" onClick={async () => { const since = await getLastAggCutoffSec(); await rebuildSince(since); const fromSec = parseYmd(from); const toSec = parseYmd(to); setRows(await queryAgg({ fromSec, toSec, granularity: gran })); setChatRows(await getChatStats()); }}>Rebuild since last</button>
         </div>
       </div>
 

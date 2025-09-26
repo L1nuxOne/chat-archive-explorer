@@ -43,22 +43,30 @@ async function saveConversation(conv: ConversationJSON) {
   const token_est = messages
     .filter(m => m.role === 'assistant')
     .reduce((acc, m) => acc + Math.round(m.text.length / 4), 0);
-  await db.conversations.put({
-    id: conv.id,
-    title: conv.title || 'Untitled',
-    created_at: conv.create_time || Date.now(),
-    model: conv.model || '',
-    msg_count,
-    token_est,
+
+  await db.transaction('rw', [db.conversations, db.messages], async () => {
+    await db.conversations.put({
+      id: conv.id,
+      title: conv.title || 'Untitled',
+      created_at: conv.create_time || Date.now(),
+      model: conv.model || '',
+      msg_count,
+      token_est,
+    });
+
+    await db.messages.where('conversation_id').equals(conv.id).delete();
+
+    if (messages.length) {
+      await db.messages.bulkAdd(
+        messages.map((m, idx) => ({
+          conversation_id: conv.id,
+          idx,
+          role: m.role,
+          created_at: m.created_at,
+          text: m.text,
+          model: m.model,
+        }))
+      );
+    }
   });
-  await db.messages.bulkAdd(
-    messages.map((m, idx) => ({
-      conversation_id: conv.id,
-      idx,
-      role: m.role,
-      created_at: m.created_at,
-      text: m.text,
-      model: m.model,
-    }))
-  );
 }
